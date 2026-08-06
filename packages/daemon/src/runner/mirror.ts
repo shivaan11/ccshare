@@ -10,7 +10,6 @@ import {
   endSessionRow,
   resolveUserContext,
   startHeartbeat,
-  type UserContext,
   updateSessionRow,
 } from "../state.js";
 import { EventWriter, truncateValue } from "../transport.js";

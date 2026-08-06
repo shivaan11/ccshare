@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Attachment, PermissionMode, SessionMode } from "./events.js";
+import { Attachment, PermissionMode, SessionMode } from "./events";
 
 // Control plane — DESIGN.md §3.3. Guests and the host's browser INSERT these as
 // control_requests rows; the host daemon is the sole consumer and state-machine

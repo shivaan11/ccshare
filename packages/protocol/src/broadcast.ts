@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EventRow } from "./events.js";
+import { EventRow } from "./events";
 
 // Realtime broadcast lanes on channel `session:{id}` — DESIGN.md §3.2/§3.4.
 // `event` mirrors durable rows for sub-second delivery (Postgres remains the

@@ -70,7 +70,7 @@ export async function runSharedSession(
         type: "user_message",
         text,
         authorName: user.displayName,
-        via: "web",
+        via: "tui",
         attachments: [],
       },
       user.userId,

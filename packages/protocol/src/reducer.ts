@@ -6,7 +6,7 @@ import type {
   RunStatus,
   SessionMode,
   TokenUsage,
-} from "./events.js";
+} from "./events";
 
 // One reducer for live and replay — DESIGN.md §6.2. Live folds the realtime
 // stream; replay folds the fetched log. Token deltas live in a separate

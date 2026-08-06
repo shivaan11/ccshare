@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EventRow, SessionEvent } from "./events.js";
+import type { EventRow, SessionEvent } from "./events";
 import {
   applyDelta,
   clearProvisional,
@@ -7,7 +7,7 @@ import {
   initialSessionState,
   reduceAll,
   reduceSession,
-} from "./reducer.js";
+} from "./reducer";
 
 let seqCounter = 0;
 function row(event: SessionEvent, author: string | null = null): EventRow {

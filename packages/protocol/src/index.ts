@@ -3,7 +3,7 @@
 
 export const PROTOCOL_VERSION = 1;
 
-export * from "./broadcast.js";
-export * from "./control.js";
-export * from "./events.js";
-export * from "./reducer.js";
+export * from "./broadcast";
+export * from "./control";
+export * from "./events";
+export * from "./reducer";
