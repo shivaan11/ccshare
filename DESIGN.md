@@ -293,12 +293,17 @@ Everything else goes straight from client to Supabase under RLS.
 
 ## 7. Auth
 
-- **Web:** Supabase Auth, GitHub OAuth, `@supabase/ssr` cookie sessions.
-- **Daemon:** standard OAuth PKCE against the same Supabase project: `ccshare login`
-  starts a localhost listener on a random port, opens the browser to
-  `signInWithOAuth` (redirect `http://127.0.0.1:{port}/auth/callback`, allowlisted
-  with a wildcard port in Supabase auth config), exchanges the code for a session,
-  and persists it via a file storage adapter at `~/.config/ccshare/session.json`
+- **Web:** Supabase Auth via `@supabase/ssr` cookie sessions. **Email magic link is
+  the zero-config default** (Supabase's built-in mailer; rate limits are fine for a
+  two-person workspace); **GitHub OAuth** is offered additionally once its OAuth app
+  is registered in the dashboard (GitHub has no API for creating OAuth apps, so that
+  step is manual).
+- **Daemon:** standard PKCE against the same Supabase project: `ccshare login`
+  starts a localhost listener on the first free port of the fixed set
+  `41741/41742/41743` (each `http://127.0.0.1:{port}/auth/callback` is allowlisted
+  in Supabase auth config — fixed ports avoid relying on wildcard redirect
+  matching), opens the browser to sign in, exchanges the code for a session, and
+  persists it via a file storage adapter at `~/.config/ccshare/session.json`
   (chmod 600). supabase-js auto-refreshes. The daemon is simply *the user*, under the
   same RLS as the browser — no service keys, no custom token system.
 - **Anthropic:** untouched. The Agent SDK uses the host's existing Claude Code CLI

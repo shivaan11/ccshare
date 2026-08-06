@@ -147,7 +147,8 @@ input owner at a time; handoff is explicit.
 
 ### 5.2 Web app (Next.js on Vercel)
 
-- R10. Auth via Supabase (GitHub OAuth). Workspace membership gates everything.
+- R10. Auth via Supabase — email magic link (zero-config default) plus GitHub OAuth
+  once registered. Workspace membership gates everything.
 - R11. Session list: live sessions first (host, project/cwd, mode, who's viewing),
   then archived, per project. Opening an archived or offline-host session shows a
   full read-only replay.
