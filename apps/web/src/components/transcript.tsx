@@ -52,8 +52,10 @@ function AssistantItem({
 
 function PermissionItem({
   item,
+  onDecide,
 }: {
   item: Extract<TranscriptItem, { kind: "permission" }>;
+  onDecide?: (requestId: string, decision: "allow" | "deny") => void;
 }) {
   const border =
     item.decision === undefined
@@ -68,9 +70,29 @@ function PermissionItem({
       <span className="ml-2 break-all text-xs text-muted">
         {item.inputSummary}
       </span>
-      <div className="mt-1 text-xs">
+      <div className="mt-1 flex items-center gap-2 text-xs">
         {item.decision === undefined ? (
-          <span className="text-warn">waiting for a decision…</span>
+          <>
+            <span className="text-warn">waiting for a decision…</span>
+            {onDecide && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onDecide(item.requestId, "allow")}
+                  className="rounded bg-good px-2 py-0.5 font-semibold text-bg"
+                >
+                  allow
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDecide(item.requestId, "deny")}
+                  className="rounded bg-bad px-2 py-0.5 font-semibold text-bg"
+                >
+                  deny
+                </button>
+              </>
+            )}
+          </>
         ) : (
           <span
             className={item.decision === "allow" ? "text-good" : "text-bad"}
@@ -93,9 +115,11 @@ function SystemLine({ children }: { children: React.ReactNode }) {
 export function Transcript({
   state,
   provisional,
+  onPermissionDecide,
 }: {
   state: SessionState;
   provisional: ProvisionalState;
+  onPermissionDecide?: (requestId: string, decision: "allow" | "deny") => void;
 }) {
   const streamingText = Object.entries(provisional.text);
   const streamingThinking = Object.entries(provisional.thinking);
@@ -126,7 +150,13 @@ export function Transcript({
               </details>
             );
           case "permission":
-            return <PermissionItem key={item.seq} item={item} />;
+            return (
+              <PermissionItem
+                key={item.seq}
+                item={item}
+                onDecide={onPermissionDecide}
+              />
+            );
           case "turn_result":
             return (
               <SystemLine key={item.seq}>

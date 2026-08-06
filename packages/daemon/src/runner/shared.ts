@@ -2,11 +2,13 @@ import readline from "node:readline";
 import {
   type PermissionResult,
   query,
+  type PermissionMode as SDKPermissionMode,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { PermissionMode, SessionMode } from "@ccshare/protocol";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { config } from "../config.js";
+import { ControlConsumer } from "../controls.js";
 import { log } from "../log.js";
 import { AsyncQueue } from "../queue.js";
 import {
@@ -20,8 +22,8 @@ import { EventWriter } from "../transport.js";
 import { adaptMessage } from "./adapter.js";
 
 // Shared-session runner — DESIGN §5.3. Runs Claude Code headless via the Agent
-// SDK, streams protocol events up, and (M1) takes host input from the terminal.
-// M2 replaces the terminal composer with control_requests consumption.
+// SDK. Input arrives from the host's terminal AND from control_requests (both
+// users' browsers); messages sent mid-turn queue and inject when the turn ends.
 
 export type SharedRunnerOptions = {
   cwd: string;
@@ -30,6 +32,8 @@ export type SharedRunnerOptions = {
   permissionMode?: PermissionMode;
   resume?: string;
 };
+
+type QueuedMessage = { text: string; authorId: string; authorName: string };
 
 export async function runSharedSession(
   client: SupabaseClient,
@@ -51,12 +55,18 @@ export async function runSharedSession(
   const writer = new EventWriter(client, sessionId, 0);
   const stopHeartbeat = startHeartbeat(client, sessionId);
 
-  console.log(`\n  ccshare session live: ${config.appUrl}/s/${sessionId}\n`);
-  console.log(`  Type to talk to Claude. Ctrl-C ends the session.\n`);
+  console.log(`\n  ccshare session live: ${config.appUrl}/s/${sessionId}`);
+  console.log(`  mode: ${opts.mode} · type to talk to Claude · Ctrl-C ends\n`);
 
   const input = new AsyncQueue<SDKUserMessage>();
+  const pendingMessages: QueuedMessage[] = [];
+  const pendingPermissions = new Map<
+    string,
+    (r: { allowed: boolean; by: string }) => void
+  >();
+  let turnInFlight = false;
   let titled = opts.resume !== undefined;
-  let pendingPermission: ((allowed: boolean) => void) | null = null;
+  let terminalPermission: ((allowed: boolean) => void) | null = null;
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -64,23 +74,24 @@ export async function runSharedSession(
     prompt: "› ",
   });
 
-  const injectUserMessage = async (text: string): Promise<void> => {
+  const inject = async (msg: QueuedMessage): Promise<void> => {
+    turnInFlight = true;
     await writer.write(
       {
         type: "user_message",
-        text,
-        authorName: user.displayName,
-        via: "tui",
+        text: msg.text,
+        authorName: msg.authorName,
+        via: msg.authorId === user.userId ? "tui" : "web",
         attachments: [],
       },
-      user.userId,
+      msg.authorId,
     );
     await writer.write({ type: "status_change", status: "working" });
     input.push({
       type: "user",
       message: {
         role: "user",
-        content: [{ type: "text", text: `[${user.displayName}]: ${text}` }],
+        content: [{ type: "text", text: `[${msg.authorName}]: ${msg.text}` }],
       },
       parent_tool_use_id: null,
       session_id: "",
@@ -88,26 +99,44 @@ export async function runSharedSession(
     } as SDKUserMessage);
     if (!titled) {
       titled = true;
-      await updateSessionRow(client, sessionId, { title: text.slice(0, 80) });
+      await updateSessionRow(client, sessionId, {
+        title: msg.text.slice(0, 80),
+      });
     }
   };
 
-  rl.on("line", (line) => {
-    const text = line.trim();
-    if (pendingPermission) {
-      const allowed = /^y(es)?$/i.test(text);
-      pendingPermission(allowed);
-      pendingPermission = null;
+  const submit = async (msg: QueuedMessage): Promise<void> => {
+    if (turnInFlight) {
+      pendingMessages.push(msg);
+      await writer.write({
+        type: "control_note",
+        note: "queued",
+        controlId: crypto.randomUUID(),
+        authorName: msg.authorName,
+        text: msg.text.slice(0, 120),
+      });
       return;
     }
-    if (text.length === 0) {
-      rl.prompt();
-      return;
-    }
-    void injectUserMessage(text).catch((err) =>
-      log.error({ err: String(err) }, "failed to send message"),
-    );
-  });
+    await inject(msg);
+  };
+
+  const releaseQueue = async (): Promise<void> => {
+    turnInFlight = false;
+    const next = pendingMessages.shift();
+    if (next) await inject(next);
+  };
+
+  const resolvePermission = async (
+    requestId: string,
+    decision: "allow" | "deny",
+    decidedByName: string,
+  ): Promise<boolean> => {
+    const resolver = pendingPermissions.get(requestId);
+    if (!resolver) return false;
+    pendingPermissions.delete(requestId);
+    resolver({ allowed: decision === "allow", by: decidedByName });
+    return true;
+  };
 
   const canUseTool = async (
     toolName: string,
@@ -126,27 +155,36 @@ export async function runSharedSession(
       type: "status_change",
       status: "awaiting_permission",
     });
-
     process.stdout.write(
-      `\n  ⚠ permission: ${toolName} ${inputSummary}\n  allow? [y/N] `,
+      `\n  ⚠ permission: ${toolName} ${inputSummary}\n  allow? [y/N] (or answer in the web app) `,
     );
-    const allowed = await new Promise<boolean>((resolve) => {
-      pendingPermission = resolve;
-    });
+
+    const decision = await new Promise<{ allowed: boolean; by: string }>(
+      (resolve) => {
+        pendingPermissions.set(requestId, resolve);
+        terminalPermission = (allowed) =>
+          void resolvePermission(
+            requestId,
+            allowed ? "allow" : "deny",
+            user.displayName,
+          );
+      },
+    );
+    terminalPermission = null;
 
     await writer.write({
       type: "permission_decision",
       requestId,
-      decision: allowed ? "allow" : "deny",
-      decidedByName: user.displayName,
+      decision: decision.allowed ? "allow" : "deny",
+      decidedByName: decision.by,
     });
     await writer.write({ type: "status_change", status: "working" });
     rl.prompt();
-    return allowed
+    return decision.allowed
       ? { behavior: "allow", updatedInput: toolInput }
       : {
           behavior: "deny",
-          message: `${user.displayName} denied ${toolName} via ccshare`,
+          message: `${decision.by} denied ${toolName} via ccshare`,
         };
   };
 
@@ -163,6 +201,81 @@ export async function runSharedSession(
     },
   });
 
+  const controls = new ControlConsumer(
+    client,
+    sessionId,
+    user.userId,
+    opts.mode,
+    {
+      sendMessage: (text, authorId, authorName) =>
+        submit({ text, authorId, authorName }),
+      interrupt: async () => {
+        await q.interrupt().catch(() => undefined);
+        await writer.write({ type: "status_change", status: "interrupted" });
+        await releaseQueue();
+      },
+      permissionDecision: resolvePermission,
+      setModel: async (model, byName) => {
+        await q.setModel(model);
+        await updateSessionRow(client, sessionId, { model });
+        await writer.write({
+          type: "settings_change",
+          field: "model",
+          value: model,
+          changedByName: byName,
+        });
+      },
+      setPermissionMode: async (mode, byName) => {
+        await q.setPermissionMode(mode as SDKPermissionMode);
+        await updateSessionRow(client, sessionId, { permission_mode: mode });
+        await writer.write({
+          type: "settings_change",
+          field: "permission_mode",
+          value: mode,
+          changedByName: byName,
+        });
+      },
+      setSessionMode: async (mode, byName) => {
+        await updateSessionRow(client, sessionId, { mode });
+        await writer.write({
+          type: "settings_change",
+          field: "session_mode",
+          value: mode,
+          changedByName: byName,
+        });
+      },
+      noteQueued: async (controlId, authorName, text) => {
+        await writer.write({
+          type: "control_note",
+          note: "queued",
+          controlId,
+          authorName,
+          text: `${text.slice(0, 120)} (needs host approval)`,
+        });
+      },
+    },
+  );
+  controls.start();
+
+  rl.on("line", (line) => {
+    const text = line.trim();
+    if (terminalPermission) {
+      terminalPermission(/^y(es)?$/i.test(text));
+      return;
+    }
+    if (text.length === 0) {
+      rl.prompt();
+      return;
+    }
+    void submit({
+      text,
+      authorId: user.userId,
+      authorName: user.displayName,
+    }).catch((err) =>
+      log.error({ err: String(err) }, "failed to send message"),
+    );
+  });
+
   let shuttingDown = false;
   const shutdown = async (reason: string): Promise<void> => {
     if (shuttingDown) return;
@@ -170,6 +283,7 @@ export async function runSharedSession(
     rl.close();
     input.close();
     stopHeartbeat();
+    await controls.stop();
     await writer
       .write({ type: "session_ended", reason })
       .catch(() => undefined);
@@ -209,6 +323,7 @@ export async function runSharedSession(
       }
       if (msg.type === "result") {
         await writer.write({ type: "status_change", status: "idle" });
+        await releaseQueue();
         rl.prompt();
       }
     }

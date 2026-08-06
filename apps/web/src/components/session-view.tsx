@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { Composer, useSendControl } from "./composer";
 import { Transcript } from "./transcript";
 
 // Catch-up rule (DESIGN §3.4): subscribe first (buffering), then backfill from
@@ -62,6 +63,7 @@ export function SessionView({
   const [connected, setConnected] = useState(false);
   const [caughtUp, setCaughtUp] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sendControl = useSendControl(sessionId);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -138,6 +140,8 @@ export function SessionView({
   }, [state.lastSeq, provisional]);
 
   const status = state.ended ? "ended" : state.status;
+  const interactive =
+    kind === "shared" && !state.ended && initialStatus === "live";
   const statusColor =
     status === "working"
       ? "text-accent"
@@ -176,17 +180,32 @@ export function SessionView({
 
       <main className="flex-1 overflow-y-auto py-4">
         {!caughtUp && <p className="text-sm text-muted">loading transcript…</p>}
-        <Transcript state={state} provisional={provisional} />
+        <Transcript
+          state={state}
+          provisional={provisional}
+          onPermissionDecide={
+            interactive
+              ? (requestId, decision) =>
+                  void sendControl({
+                    kind: "permission_decision",
+                    requestId,
+                    decision,
+                  })
+              : undefined
+          }
+        />
         <div ref={bottomRef} />
       </main>
 
-      <footer className="border-t border-border py-3 text-xs text-muted">
-        {state.ended || initialStatus === "ended"
-          ? "session ended — replay"
-          : kind === "mirror"
-            ? "read-only mirror of a terminal session"
-            : `watching live · ${state.totals.turns} turns · ${state.totals.inputTokens + state.totals.outputTokens} tokens`}
-      </footer>
+      {interactive ? (
+        <Composer sessionId={sessionId} status={status} disabled={false} />
+      ) : (
+        <footer className="border-t border-border py-3 text-xs text-muted">
+          {state.ended || initialStatus === "ended"
+            ? "session ended — replay"
+            : "read-only mirror of a terminal session"}
+        </footer>
+      )}
     </div>
   );
 }
