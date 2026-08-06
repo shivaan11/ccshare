@@ -1,0 +1,16 @@
+{
+  "name": "@ccshare/protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "echo \"consumed as source via workspace\"",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ccshare",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ccshare": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup src/cli.ts --format esm --clean",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.222",
+    "@ccshare/protocol": "workspace:*",
+    "@supabase/supabase-js": "^2.112.1",
+    "chokidar": "^5.0.0",
+    "commander": "^15.0.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.8"
+  }
+}
