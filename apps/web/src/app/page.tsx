@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AccessRequests } from "@/components/access-requests";
 import { SignOutButton } from "@/components/sign-out";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -28,6 +29,13 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: myMemberships } = await supabase
+    .from("workspace_members")
+    .select("workspace_id, role")
+    .eq("user_id", user.id);
+  if (!myMemberships || myMemberships.length === 0) redirect("/pending");
+  const isOwner = myMemberships.some((m) => m.role === "owner");
 
   const [{ data: sessions }, { data: profiles }] = await Promise.all([
     supabase
@@ -96,6 +104,8 @@ export default async function Home() {
         </div>
         <SignOutButton />
       </header>
+
+      {isOwner && <AccessRequests />}
 
       <section>
         <h2 className="mb-2 text-xs uppercase tracking-widest text-muted">

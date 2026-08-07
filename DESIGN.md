@@ -149,7 +149,8 @@ attachments(id uuid pk, session_id fk, uploader_id fk, storage_path, mime, bytes
 
 | Table | SELECT | INSERT | UPDATE |
 |---|---|---|---|
-| workspaces / members | members | service role only (invite API route) | service role |
+| workspaces / members | members | service role only (owner-gated access API) | service role |
+| profiles | own row always; all rows for workspace members | trigger (security definer) | never (v1) |
 | sessions | members | host (`host_user_id = auth.uid()`) | host only |
 | events / event_blobs | members | host only | never (append-only) |
 | control_requests | members | members, with `requested_by = auth.uid()` and session live | host only (daemon state machine) |
@@ -298,6 +299,13 @@ Everything else goes straight from client to Supabase under RLS.
   two-person workspace); **GitHub OAuth** is offered additionally once its OAuth app
   is registered in the dashboard (GitHub has no API for creating OAuth apps, so that
   step is manual).
+- **Access approval:** signing in creates an identity, never access. Users whose
+  email matches a standing `workspace_invites` row are attached automatically at
+  first sign-in; everyone else lands on `/pending` and appears in an owner-only
+  "access requests" panel (profiles without membership). Approve/deny run through an
+  owner-gated service-role API route (`/api/access`): approve inserts membership +
+  an invite row for audit; deny deletes the auth user. Strangers cannot read any
+  workspace data (RLS) nor enumerate member profiles.
 - **Daemon:** standard PKCE against the same Supabase project: `ccshare login`
   starts a localhost listener on the first free port of the fixed set
   `41741/41742/41743` (each `http://127.0.0.1:{port}/auth/callback` is allowlisted

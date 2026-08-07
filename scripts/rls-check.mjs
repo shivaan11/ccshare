@@ -144,6 +144,18 @@ check("host can create a session", !sessionError, sessionError?.message);
   });
   check("outsider CANNOT file control requests", Boolean(error));
 }
+{
+  const { data } = await outsider.client
+    .from("profiles")
+    .select("user_id")
+    .neq("user_id", outsider.userId);
+  check("outsider CANNOT enumerate profiles", (data ?? []).length === 0);
+  const { data: members } = await host.client
+    .from("profiles")
+    .select("user_id")
+    .eq("user_id", guest.userId);
+  check("member CAN read co-members' profiles", (members ?? []).length === 1);
+}
 
 // cleanup
 await admin.from("workspaces").delete().eq("id", ws.id);
