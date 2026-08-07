@@ -34,12 +34,15 @@ export function Composer({
   sessionId,
   status,
   disabled,
+  onDraft,
 }: {
   sessionId: string;
   status: string;
   disabled: boolean;
+  onDraft?: (text: string, shared: boolean) => void;
 }) {
   const [text, setText] = useState("");
+  const [shareDraft, setShareDraft] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
   const [requests, setRequests] = useState<ControlRow[]>([]);
@@ -81,6 +84,7 @@ export function Composer({
     const value = text.trim();
     if (!value) return;
     setText("");
+    onDraft?.("", shareDraft);
     setError(null);
     const err = await send({
       kind: "send_message",
@@ -137,7 +141,10 @@ export function Composer({
           ref={textareaRef}
           value={text}
           disabled={disabled}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            onDraft?.(e.target.value, shareDraft);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -170,11 +177,24 @@ export function Composer({
           </button>
         </div>
       </div>
-      {status === "working" && (
-        <p className="mt-1 text-[11px] text-muted">
-          Claude is working — messages sent now will queue for the next turn.
-        </p>
-      )}
+      <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
+        <span>
+          {status === "working" &&
+            "Claude is working — messages sent now will queue for the next turn."}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !shareDraft;
+            setShareDraft(next);
+            onDraft?.(text, next);
+          }}
+          className="hover:text-ink"
+          title="when on, your co-worker sees what you're typing before you send"
+        >
+          draft sharing: {shareDraft ? "on" : "off"}
+        </button>
+      </div>
       {error && <p className="mt-1 text-xs text-bad">{error}</p>}
     </div>
   );

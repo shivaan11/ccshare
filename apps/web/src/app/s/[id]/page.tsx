@@ -12,27 +12,30 @@ export default async function SessionPage({
   const { id } = await params;
   const supabase = await supabaseServer();
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select(
-      "id, kind, status, mode, title, cwd, host_user_id, model, permission_mode, last_heartbeat_at, created_at",
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: session }, { data: profiles }] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select(
+        "id, kind, status, mode, title, cwd, host_user_id, model, permission_mode, last_heartbeat_at, created_at",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("profiles").select("user_id, display_name"),
+  ]);
   if (!session) notFound();
 
-  const { data: host } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("user_id", session.host_user_id)
-    .maybeSingle();
+  const names: Record<string, string> = {};
+  for (const p of profiles ?? []) {
+    names[p.user_id as string] = p.display_name as string;
+  }
 
   return (
     <SessionView
       sessionId={id}
       initialStatus={session.status}
       kind={session.kind}
-      hostName={host?.display_name ?? "?"}
+      hostUserId={session.host_user_id}
+      names={names}
       title={session.title ?? session.cwd}
     />
   );
