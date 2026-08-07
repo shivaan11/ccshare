@@ -158,9 +158,7 @@ export async function loginWithEmail(
     input: process.stdin,
     output: process.stdout,
   });
-  const token = (
-    await rl.question(`Enter the 6-digit code sent to ${email}: `)
-  ).trim();
+  const token = (await rl.question(`Enter the code sent to ${email}: `)).trim();
   rl.close();
   const { error: verifyError } = await client.auth.verifyOtp({
     email,

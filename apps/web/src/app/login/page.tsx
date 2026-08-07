@@ -69,19 +69,24 @@ export default function LoginPage() {
         </form>
       )}
 
-      <div className="flex items-center gap-3 text-xs text-muted">
-        <div className="h-px flex-1 bg-border" />
-        or
-        <div className="h-px flex-1 bg-border" />
-      </div>
+      {/* Hidden until a GitHub OAuth app is configured in Supabase */}
+      {process.env.NEXT_PUBLIC_GITHUB_LOGIN === "1" && (
+        <>
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <div className="h-px flex-1 bg-border" />
+            or
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
-      <button
-        type="button"
-        onClick={githubLogin}
-        className="rounded border border-border bg-panel px-3 py-2 text-sm hover:border-accent"
-      >
-        continue with GitHub
-      </button>
+          <button
+            type="button"
+            onClick={githubLogin}
+            className="rounded border border-border bg-panel px-3 py-2 text-sm hover:border-accent"
+          >
+            continue with GitHub
+          </button>
+        </>
+      )}
 
       {error && <p className="text-sm text-bad">{error}</p>}
     </main>
