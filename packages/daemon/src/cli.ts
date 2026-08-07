@@ -4,7 +4,7 @@ import { PermissionMode, SessionMode } from "@ccshare/protocol";
 import { Command } from "commander";
 import {
   loginWithBrowser,
-  loginWithEmail,
+  loginWithPassword,
   logout,
   makeClient,
   requireSession,
@@ -25,12 +25,13 @@ program
 
 program
   .command("login")
-  .description("Log in (GitHub via browser, or --email for a one-time code)")
-  .option("--email <email>", "email OTP flow instead of the browser")
-  .action(async (opts: { email?: string }) => {
+  .description("Log in with your ccshare email and password")
+  .option("--email <email>", "skip the email prompt")
+  .option("--github", "use GitHub OAuth via the browser instead")
+  .action(async (opts: { email?: string; github?: boolean }) => {
     const client = makeClient();
-    if (opts.email) await loginWithEmail(client, opts.email);
-    else await loginWithBrowser(client);
+    if (opts.github) await loginWithBrowser(client);
+    else await loginWithPassword(client, opts.email);
     const { data } = await client.auth.getUser();
     console.log(`Logged in as ${data.user?.email}`);
   });

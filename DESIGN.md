@@ -169,7 +169,7 @@ only inside Vercel server routes for workspace management).
 ### 5.1 CLI surface
 
 ```
-ccshare login          # PKCE OAuth via browser; stores session in ~/.config/ccshare/
+ccshare login          # email + password prompt; stores session in ~/.config/ccshare/
 ccshare [--dir .]      # start a shared session in cwd; prints web URL
 ccshare --resume <id>  # resume a Claude session as shared (the promote path)
 ccshare watch          # mirror daemon: streams live TUI sessions read-only
@@ -294,11 +294,22 @@ Everything else goes straight from client to Supabase under RLS.
 
 ## 7. Auth
 
-- **Web:** Supabase Auth via `@supabase/ssr` cookie sessions. **Email magic link is
-  the zero-config default** (Supabase's built-in mailer; rate limits are fine for a
-  two-person workspace); **GitHub OAuth** is offered additionally once its OAuth app
-  is registered in the dashboard (GitHub has no API for creating OAuth apps, so that
-  step is manual).
+- **Web:** Supabase Auth via `@supabase/ssr` cookie sessions. **Email + password is
+  the default**, because it is the only flow that completes in the tab the user
+  started in: a magic link is necessarily opened by the mail client, stranding the
+  original tab. Same-tab OTP *codes* would need `{{ .Token }}` in the email template,
+  and template customization is rejected on free-tier projects using the built-in
+  mailer — so codes are off the table until custom SMTP exists. Email is therefore
+  used exactly once, for sign-up confirmation (`mailer_autoconfirm = false`, which
+  also stops an attacker from claiming an invited address). A magic link remains as
+  the forgotten-password escape hatch. **GitHub OAuth** is wired but hidden behind
+  `NEXT_PUBLIC_GITHUB_LOGIN=1` until its OAuth app is registered in the dashboard
+  (GitHub has no API for creating OAuth apps, so that step is manual).
+- **Auth URLs:** `site_url` and the redirect allowlist live in `supabase/config.toml`
+  and ship via `supabase config push`, not the dashboard. Note the Supabase↔Vercel
+  integration rewrites `site_url` to its own alias on deploy; this is tolerable
+  because every flow passes `emailRedirectTo` explicitly, making `site_url` a
+  fallback only.
 - **Access approval:** signing in creates an identity, never access. Users whose
   email matches a standing `workspace_invites` row are attached automatically at
   first sign-in; everyone else lands on `/pending` and appears in an owner-only
@@ -306,14 +317,16 @@ Everything else goes straight from client to Supabase under RLS.
   owner-gated service-role API route (`/api/access`): approve inserts membership +
   an invite row for audit; deny deletes the auth user. Strangers cannot read any
   workspace data (RLS) nor enumerate member profiles.
-- **Daemon:** standard PKCE against the same Supabase project: `ccshare login`
-  starts a localhost listener on the first free port of the fixed set
-  `41741/41742/41743` (each `http://127.0.0.1:{port}/auth/callback` is allowlisted
-  in Supabase auth config — fixed ports avoid relying on wildcard redirect
-  matching), opens the browser to sign in, exchanges the code for a session, and
-  persists it via a file storage adapter at `~/.config/ccshare/session.json`
-  (chmod 600). supabase-js auto-refreshes. The daemon is simply *the user*, under the
-  same RLS as the browser — no service keys, no custom token system.
+- **Daemon:** `ccshare login` prompts for the same email + password as the web (the
+  password is read with terminal echo suppressed) and calls `signInWithPassword`.
+  Accounts are created on the web, never from the CLI. `--github` instead runs PKCE:
+  a localhost listener on the first free port of the fixed set `41741/41742/41743`
+  (each `http://127.0.0.1:{port}/auth/callback` is allowlisted in Supabase auth
+  config — fixed ports avoid relying on wildcard redirect matching), browser sign-in,
+  code exchange. Either way the session persists via a file storage adapter at
+  `~/.config/ccshare/session.json` (chmod 600) and supabase-js auto-refreshes. The
+  daemon is simply *the user*, under the same RLS as the browser — no service keys,
+  no custom token system.
 - **Anthropic:** untouched. The Agent SDK uses the host's existing Claude Code CLI
   login. ccshare never sees, stores, or transmits Anthropic credentials (PRD G2).
 

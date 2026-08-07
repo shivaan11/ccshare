@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -28,7 +29,10 @@ export default async function PendingPage() {
           they've approved you.
         </p>
       </div>
-      <div>
+      <div className="flex items-center justify-center gap-3">
+        <Link href="/account" className="text-xs text-muted hover:text-ink">
+          set a password
+        </Link>
         <SignOutButton />
       </div>
     </main>

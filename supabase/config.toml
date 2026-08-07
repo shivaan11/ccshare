@@ -189,7 +189,7 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -253,7 +253,9 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
+# NOTE: custom email templates require custom SMTP (free tier + the built-in
+# email provider rejects them), so sign-in is password-based and email is only
+# used once, at sign-up confirmation. See README "Signing in".
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"

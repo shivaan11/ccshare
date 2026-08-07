@@ -147,26 +147,52 @@ export async function loginWithBrowser(client: SupabaseClient): Promise<void> {
   }
 }
 
-// TTY flow: email OTP — works even before the GitHub OAuth app exists.
-export async function loginWithEmail(
-  client: SupabaseClient,
-  email: string,
-): Promise<void> {
-  const { error } = await client.auth.signInWithOtp({ email });
-  if (error) throw new Error(`Could not send code: ${error.message}`);
+async function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
-  const token = (await rl.question(`Enter the code sent to ${email}: `)).trim();
+  const answer = await rl.question(question);
   rl.close();
-  const { error: verifyError } = await client.auth.verifyOtp({
-    email,
-    token,
-    type: "email",
+  return answer.trim();
+}
+
+// Same as prompt(), with the typed characters suppressed.
+async function promptSecret(question: string): Promise<string> {
+  if (!process.stdin.isTTY) return prompt(question);
+  process.stdout.write(question);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
   });
-  if (verifyError)
-    throw new Error(`Verification failed: ${verifyError.message}`);
+  (
+    rl as unknown as { _writeToOutput: (chunk: string) => void }
+  )._writeToOutput = () => {};
+  const answer = await rl.question("");
+  rl.close();
+  process.stdout.write("\n");
+  return answer;
+}
+
+// Default flow: the same email + password used on the web. No mail round-trip,
+// no OAuth app required. Accounts are created on the web app, not here.
+export async function loginWithPassword(
+  client: SupabaseClient,
+  emailArg?: string,
+): Promise<void> {
+  const email = emailArg ?? (await prompt("Email: "));
+  const password = await promptSecret("Password: ");
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    const hint =
+      error.message === "Email not confirmed"
+        ? " — confirm your address using the link sent when you signed up"
+        : error.message === "Invalid login credentials"
+          ? `\n  If you have never set a password, create your account at ${config.appUrl}/login`
+          : "";
+    throw new Error(`Login failed: ${error.message}${hint}`);
+  }
 }
 
 export async function logout(client: SupabaseClient): Promise<void> {

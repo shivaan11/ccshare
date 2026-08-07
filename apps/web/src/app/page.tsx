@@ -102,7 +102,12 @@ export default async function Home() {
           <h1 className="text-xl font-bold text-accent">ccshare</h1>
           <p className="text-xs text-muted">{user.email}</p>
         </div>
-        <SignOutButton />
+        <div className="flex items-center gap-3">
+          <Link href="/account" className="text-xs text-muted hover:text-ink">
+            account
+          </Link>
+          <SignOutButton />
+        </div>
       </header>
 
       {isOwner && <AccessRequests />}
