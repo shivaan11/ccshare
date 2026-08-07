@@ -20,12 +20,32 @@ packages/daemon     `ccshare` CLI — runs sessions headless, streams to Supabas
 supabase/           migrations, config (Supabase CLI project)
 ```
 
-## Quickstart (dev)
+## Using it
+
+Web app: **https://ccshare-eight.vercel.app** — sign in with a magic link or
+GitHub. Workspace membership attaches automatically if your email is invited.
+
+Host a session from your machine:
+
+```bash
+pnpm install && pnpm --filter ccshare build
+node packages/daemon/dist/cli.js login     # one-time; browser PKCE or --email <you>
+node packages/daemon/dist/cli.js           # in the repo you want to work on
+```
+
+The CLI prints the session URL; anyone in the workspace can join and (per the
+session's mode) send messages, interrupt, and answer permission prompts.
+`ccshare watch` mirrors plain `claude` TUI sessions read-only.
+`ccshare --resume <claude-session-id>` promotes a TUI session to multiplayer.
+
+## Development
 
 ```bash
 corepack enable && pnpm install
-supabase start          # local Supabase (Docker)
-pnpm --filter web dev   # web app on :3000
+supabase start            # local Supabase (Docker)
+pnpm --filter web dev     # web app on :3000
+pnpm check && pnpm typecheck && pnpm test
+pnpm rls-check            # RLS negative tests against the local stack
 ```
 
-Status: pre-v1, under construction. See PRD §6 for the build checkpoints.
+Manual acceptance: [docs/acceptance.md](docs/acceptance.md).

@@ -52,6 +52,7 @@ export function SessionView({
   hostUserId,
   names,
   title,
+  claudeSessionId,
 }: {
   sessionId: string;
   initialStatus: "live" | "ended";
@@ -59,6 +60,7 @@ export function SessionView({
   hostUserId: string;
   names: Record<string, string>;
   title: string;
+  claudeSessionId: string | null;
 }) {
   const [state, setState] = useState<SessionState>(initialSessionState);
   const [provisional, setProvisional] = useState<ProvisionalState>(
@@ -358,9 +360,36 @@ export function SessionView({
         />
       ) : (
         <footer className="border-t border-border py-3 text-xs text-muted">
-          {state.ended || initialStatus === "ended"
-            ? "session ended — replay"
-            : "read-only mirror of a terminal session"}
+          {state.ended || initialStatus === "ended" ? (
+            <span>
+              session ended — replay
+              {claudeSessionId && (
+                <span className="ml-2">
+                  · continue it:{" "}
+                  <code className="select-all rounded bg-panel px-1 py-0.5 text-ink">
+                    ccshare --resume {claudeSessionId}
+                  </code>{" "}
+                  (shared) or{" "}
+                  <code className="select-all rounded bg-panel px-1 py-0.5 text-ink">
+                    claude --resume {claudeSessionId}
+                  </code>{" "}
+                  (solo TUI)
+                </span>
+              )}
+            </span>
+          ) : (
+            <span>
+              read-only mirror of a terminal session
+              {claudeSessionId && (
+                <span className="ml-2">
+                  · promote to multiplayer: exit the TUI, then{" "}
+                  <code className="select-all rounded bg-panel px-1 py-0.5 text-ink">
+                    ccshare --resume {claudeSessionId}
+                  </code>
+                </span>
+              )}
+            </span>
+          )}
         </footer>
       )}
     </div>

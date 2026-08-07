@@ -10,10 +10,12 @@
     "check:fix": "biome check --write .",
     "typecheck": "pnpm -r --parallel typecheck",
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "rls-check": "node scripts/rls-check.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
+    "@supabase/supabase-js": "^2.112.1",
     "typescript": "^7.0.2"
   }
 }

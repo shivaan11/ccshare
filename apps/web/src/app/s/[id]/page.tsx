@@ -16,7 +16,7 @@ export default async function SessionPage({
     supabase
       .from("sessions")
       .select(
-        "id, kind, status, mode, title, cwd, host_user_id, model, permission_mode, last_heartbeat_at, created_at",
+        "id, kind, status, mode, title, cwd, host_user_id, model, permission_mode, claude_session_id, last_heartbeat_at, created_at",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -37,6 +37,7 @@ export default async function SessionPage({
       hostUserId={session.host_user_id}
       names={names}
       title={session.title ?? session.cwd}
+      claudeSessionId={session.claude_session_id}
     />
   );
 }

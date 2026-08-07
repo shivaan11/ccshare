@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.7
         version: 2.5.7
+      '@supabase/supabase-js':
+        specifier: ^2.112.1
+        version: 2.112.1
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
